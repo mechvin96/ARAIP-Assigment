@@ -1,10 +1,11 @@
 """
-Project Tun Kameie - Obstacle Avoidance Phase
-This controller implements basic navigation using proximity sensors.
+Project Tun Kameie - Final Integrated Controller
+This controller implements obstacle avoidance, random wandering, 
+and color recognition for Red, Blue, and Green blocks.
 """
 
 from controller import Robot
-import random # Importin random for robot wandering behavior
+import random
 
 # Initialize the Robot
 robot = Robot()
@@ -24,57 +25,99 @@ for name in ps_names:
 left_motor = robot.getDevice('left wheel motor')
 right_motor = robot.getDevice('right wheel motor')
 
-# Set motors to "velocity mode" by setting position to infinity
+# Set motors to "velocity mode"
 left_motor.setPosition(float('inf'))
 right_motor.setPosition(float('inf'))
 left_motor.setVelocity(0.0)
 right_motor.setVelocity(0.0)
 
-#Add Random Wandering
+# Initialize Camera for Color Recognition
+camera = robot.getDevice('camera')
+camera.enable(TIME_STEP)
+cam_width = camera.getWidth()
+cam_height = camera.getHeight()
+
+# Tracking Variables for Color Recognition
+found_status = {'red': False, 'green': False, 'blue': False}
+found_history = []
+
+def print_summary():
+    """Prints a summary of all items recognized so far."""
+    if not found_history:
+        print("Summary of colors encountered: None")
+    else:
+        summary_store = ", ".join(found_history)
+        print(f"Summary of colors encountered: {summary_store}")
+
+# Wandering counter
 wander_counter = 0
 
 # Main Simulation Loop
 while robot.step(TIME_STEP) != -1:
-    # 2. READ SENSOR DATA
-    # Sensor values typically range from 0 (nothing) to 4000+ (very close)
+    # --- 1. VISION LOGIC (RGB Sampling) ---
+    image = camera.getImage()
+    
+    if image:
+        # Sample the center pixel
+        cx, cy = cam_width // 2, cam_height // 2
+        
+        # Get RGB values
+        r = camera.imageGetRed(image, cam_width, cx, cy)
+        g = camera.imageGetGreen(image, cam_width, cx, cy)
+        b = camera.imageGetBlue(image, cam_width, cx, cy)
+        
+        # OPTIONAL: Uncomment the line below to debug actual RGB values in console
+        print(f"RGB: ({r}, {g}, {b})")
+
+        detected_color = None
+        # Thresholds lowered to 160 for better detection in different lighting
+        if r > 100 and g < 90 and b < 90:
+            detected_color = 'red'
+        elif g > 100 and r < 90 and b < 90:
+            detected_color = 'green'
+        elif b > 100 and r < 90 and g < 90:
+            detected_color = 'blue'
+
+        # Check if this is a new discovery
+        if detected_color and not found_status[detected_color]:
+            print(f"I See {detected_color}!")
+            found_status[detected_color] = True
+            found_history.append(detected_color)   
+            print_summary()
+
+    # --- 2. NAVIGATION LOGIC (Obstacle Avoidance & Wandering) ---
     ps_values = [sensor.getValue() for sensor in ps]
-
-    # 3. OBSTACLE AVOIDANCE LOGIC
-    # Define thresholds for detection
-    threshold = 80.0
+    threshold = 80.0 # Proximity threshold
     
-    # Check for obstacles on the left (ps5, ps6, ps7)
-    left_obstacle = ps_values[5] > threshold or ps_values[6] > threshold or ps_values[7] > threshold
-    
-    # Check for obstacles on the right (ps0, ps1, ps2)
-    right_obstacle = ps_values[0] > threshold or ps_values[1] > threshold or ps_values[2] > threshold
+    # Check for obstacles
+    # Right side sensors (ps0, ps1, ps2)
+    right_obstacle = ps_values[0] > threshold or ps_values[1] > threshold
+    # Left side sensors (ps7, ps6, ps5)
+    left_obstacle = ps_values[7] > threshold or ps_values[6] > threshold
 
-    # Initialize motor speeds at 50% max
+    # Default forward speed
     left_speed = 0.5 * MAX_SPEED
     right_speed = 0.5 * MAX_SPEED
 
     if left_obstacle:
-        # Obstacle on the left? Turn right
+        # Turn Right
         left_speed = 0.5 * MAX_SPEED
         right_speed = -0.5 * MAX_SPEED
-        wander_counter = 0  # Reset wandering counter when an obstacle is detected
+        wander_counter = 0
     elif right_obstacle:
-        # Obstacle on the right? Turn left
+        # Turn Left
         left_speed = -0.5 * MAX_SPEED
         right_speed = 0.5 * MAX_SPEED
-        wander_counter = 0 # Reset wandering counter when an obstacle is detected
+        wander_counter = 0
     else:
-                # No obstacles detected, move forward
-        left_speed = 0.5 * MAX_SPEED
-        right_speed = 0.5 * MAX_SPEED
-        
-        # Add random wandering behavior every 100 steps
+        # Random wandering every 100 steps
         wander_counter += 1
         if wander_counter > 100:
-            left_speed += random.uniform(-0.2, 0.2) * MAX_SPEED
-            right_speed += random.uniform(-0.2, 0.2) * MAX_SPEED
-            wander_counter = 0
+            left_speed += random.uniform(-0.15, 0.15) * MAX_SPEED
+            right_speed += random.uniform(-0.15, 0.15) * MAX_SPEED
+            if wander_counter > 120: # Reset after a brief "wobble"
+                wander_counter = 0
 
-    # 4. APPLY SPEEDS TO MOTORS
+    # Apply speeds to motors
     left_motor.setVelocity(left_speed)
     right_motor.setVelocity(right_speed)
