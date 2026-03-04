@@ -1,7 +1,8 @@
 """
 Project Tun Kameie - Final Integrated Controller
 This controller implements obstacle avoidance, random wandering, 
-and color recognition for Red, Blue, and Green blocks.
+and color recognition for Red, Blue, and Green blocks. Tgt with high camera sensitivity and optimized vision processing to minimize lag, 
+allowing the robot to navigate and identify colors effectively in real-time.
 """
 
 from controller import Robot
