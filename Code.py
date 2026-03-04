@@ -1,58 +1,80 @@
-#Project Tun Kameie- Obstacle Avoidance Phase 1
+"""
+Project Tun Kameie - Obstacle Avoidance Phase
+This controller implements basic navigation using proximity sensors.
+"""
+
 from controller import Robot
+import random # Importin random for robot wandering behavior
 
-#Initiali the robot
-TimeStep = 64
-Max_Speed = 6.28
+# Initialize the Robot
+robot = Robot()
+TIME_STEP = 64
+MAX_SPEED = 6.28
 
-
-#Setup Sensor
-#Initilaize 8 promixmity sensors
-ps=[]
-ps_names = ['ps0','ps1','ps2','ps3','ps4','ps5','ps6','ps7']
+# 1. SETUP DEVICES
+# Initialize 8 Proximity Sensors (ps0 to ps7)
+ps = []
+ps_names = ['ps0', 'ps1', 'ps2', 'ps3', 'ps4', 'ps5', 'ps6', 'ps7']
 for name in ps_names:
-    sensor = robot.GetDevice(name)
-    sensor.enable(TimeStep)
+    sensor = robot.getDevice(name)
+    sensor.enable(TIME_STEP)
     ps.append(sensor)
 
-#Initialize 2 motors
-left_motor = robot.GetDevice('left wheel motor')
-right_motor = robot.GetDevice('right wheel motor')
+# Initialize Motors
+left_motor = robot.getDevice('left wheel motor')
+right_motor = robot.getDevice('right wheel motor')
 
-#Set the motors to velocity mode to infinity
+# Set motors to "velocity mode" by setting position to infinity
 left_motor.setPosition(float('inf'))
 right_motor.setPosition(float('inf'))
 left_motor.setVelocity(0.0)
 right_motor.setVelocity(0.0)
 
-#Main Simulation Loop
-while robot.step(TimeStep)!=-1:
+#Add Random Wandering
+wander_counter = 0
 
-    #Read PS sensor values and set the threshold for obstacle detection
+# Main Simulation Loop
+while robot.step(TIME_STEP) != -1:
+    # 2. READ SENSOR DATA
+    # Sensor values typically range from 0 (nothing) to 4000+ (very close)
     ps_values = [sensor.getValue() for sensor in ps]
-    threshold = 80.0
 
-    #Check for obstacles and set motor speeds accordingly
-    #Left(ps5,ps6,ps7)
+    # 3. OBSTACLE AVOIDANCE LOGIC
+    # Define thresholds for detection
+    threshold = 80.0
+    
+    # Check for obstacles on the left (ps5, ps6, ps7)
     left_obstacle = ps_values[5] > threshold or ps_values[6] > threshold or ps_values[7] > threshold
-    #Right(ps0,ps1,ps2)
+    
+    # Check for obstacles on the right (ps0, ps1, ps2)
     right_obstacle = ps_values[0] > threshold or ps_values[1] > threshold or ps_values[2] > threshold
 
-    #Initialize motor speeds at 50% of max speed
-    left_speed = 0.5 * Max_Speed
-    right_speed = 0.5 * Max_Speed
+    # Initialize motor speeds at 50% max
+    left_speed = 0.5 * MAX_SPEED
+    right_speed = 0.5 * MAX_SPEED
 
-    #Obstacled on the left --> turn right
     if left_obstacle:
-        left_speed = 0.5 * Max_Speed
-        right_speed = -0.5 * Max_Speed
+        # Obstacle on the left? Turn right
+        left_speed = 0.5 * MAX_SPEED
+        right_speed = -0.5 * MAX_SPEED
+        wander_counter = 0  # Reset wandering counter when an obstacle is detected
+    elif right_obstacle:
+        # Obstacle on the right? Turn left
+        left_speed = -0.5 * MAX_SPEED
+        right_speed = 0.5 * MAX_SPEED
+        wander_counter = 0 # Reset wandering counter when an obstacle is detected
+    else:
+                # No obstacles detected, move forward
+        left_speed = 0.5 * MAX_SPEED
+        right_speed = 0.5 * MAX_SPEED
+        
+        # Add random wandering behavior every 100 steps
+        wander_counter += 1
+        if wander_counter > 100:
+            left_speed += random.uniform(-0.2, 0.2) * MAX_SPEED
+            right_speed += random.uniform(-0.2, 0.2) * MAX_SPEED
+            wander_counter = 0
 
-    elif right_obstacle: #Obstacled on the right --> turn left
-        left_speed = -0.5 * Max_Speed
-        right_speed = 0.5 * Max_Speed
-
-    #Set motor speeds
-left_motor.setVelocity(left_speed)
-right_motor.SetVelocity(right_speed)
-          
-
+    # 4. APPLY SPEEDS TO MOTORS
+    left_motor.setVelocity(left_speed)
+    right_motor.setVelocity(right_speed)
