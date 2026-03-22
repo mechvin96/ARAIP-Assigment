@@ -1,6 +1,7 @@
 #import the necceasry library as shown by Dr.Venga
 import tensorflow as tf
 from tensorflow.keras import layers,models, Input
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -90,22 +91,54 @@ model.compile(optimizer ='adam',
               loss ='sparse_categorical_crossentropy',
               metrics=['accuracy'])
 
+#Trying out Best Epoch Logic where it will compare the previous and present value and take the best value
+# callback monitors val_accuracy and compares it to previous epochs
+early_stop = EarlyStopping(
+    monitor ='val_accuracy',
+    patience=10,
+    restore_best_weights = True, # this reload the best weight automatically
+    verbose =1,
+)
+
+#This compares and saves only if the current epoch is better than previous best
+checkpoint = ModelCheckpoint(
+    'cifar10_model_v2_best.keras',
+    monitor = 'val_accuracy',
+    save_best_only = True,
+    verbose = 1
+)
+
+
 #print table showing the layers and number of trainable parameters
 model.summary()
 
 #Training
 #epochs = 10: The model looks at the entire dataset 1otimes as color images are more complex than digits
 # 
-print("\n Startng training(make take longer than MNIST....")
-history = model.fit(train_images, train_labels, epochs = 30,validation_data = (test_images,test_labels),batch_size = 64)
-
+print("\n Startng training with Best Weight Comparison(make take longer than MNIST....")
+history = model.fit(train_images, train_labels,
+                    epochs = 30,
+                    validation_data = (test_images,test_labels),
+                    batch_size = 64,
+                    callbacks = [ early_stop,checkpoint]
+                   )
 #Integration part where the model is saved
 #saved file later moved to Webots controller folder
-model.save('cifar10_model_v2.keras')
-print("\n Model saved as 'cifar10_model.keras'")
+model.save('Final_cifar10_model.keras')
+print("\n Model saved as 'Final_cifar10_model.keras' saved sucessfully")
 
-#Evaluation
-#Test the model on the 10,000 imgs it has never seen before
+#Evaluation and Summary
+val_acc_history = history.history['val_accuracy']
+best_epoch = np.argmax(val_acc_history) +1
+best_val_acc = val_acc_history[best_epoch -1]
+
+print("\n" + "="*30)
+print(f"TRAINING SUMMARY")
+print(f"Best Epoch Found: {best_epoch}")
+print(f"Highest Val Accuracy achieved: {best_val_acc*100:.2f}%")
+print(f"Model state restored to Best Epoch ({best_epoch}) weights.")
+print("="*30)
+
 test_loss,test_acc = model.evaluate(test_images, test_labels,verbose = 2)
 print(f'\n Final Accuracy on Test Data:{test_acc*100:.2f}%')
 
