@@ -66,7 +66,7 @@ model.summary()
 #epochs = 10: The model looks at the entire dataset 1otimes as color images are more complex than digits
 # 
 print("\n Startng training(make take longer than MNIST....")
-history = model.fit(train_images, train_labels, epochs = 10,validation_data = (test_images,test_labels))
+history = model.fit(train_images, train_labels, epochs = 20,validation_data = (test_images,test_labels)) #try doubling the epoch to see if the improve the accuracy
 
 #Integration part where the model is saved
 #saved file later moved to Webots controller folder
