@@ -67,6 +67,7 @@ model.summary()
 # 
 print("\n Startng training(make take longer than MNIST....")
 history = model.fit(train_images, train_labels, epochs = 20,validation_data = (test_images,test_labels)) #try doubling the epoch to see if the improve the accuracy
+#training doesn't work need to change  the way the camera see things must go back to the model architecture to add somthing better.
 
 #Integration part where the model is saved
 #saved file later moved to Webots controller folder
