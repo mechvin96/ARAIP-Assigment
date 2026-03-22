@@ -2,6 +2,7 @@
 import tensorflow as tf
 from tensorflow.keras import layers,models, Input
 import matplotlib.pyplot as plt
+import numpy as np
 
 #Check if a GPU is used as my laptop had some issue
 print("Num GPUs Available: " , len(tf.config.list_physical_devices('GPU')))
@@ -21,31 +22,61 @@ class_names = [ 'airplane','automobile', 'bird','cat','deer','dog', 'frog','hors
 #train_images = train_images.reshape((60000,28,28,1)) # no need for now
 #test_images = test_images.reshape((10000,28,28,1)) # no need for now
 
+#Data Augmentation
+# Adding some random flip, rotation and zoom to improve the way the model seeing the image.( Change of prespective and perceptive)
+data_augmentation = tf.keras.Sequential([
+    layers.RandomFlip("horizontal"),
+    layers.RandomRotation(0.1),
+    layers.RandomZoom(0.1),
+])
+
+
+
 #2.Model Architecture
 
 model =models.Sequential([
-    #tell the model the shape first follow by adding the eye Conv2D with the size use relu to turn off negative signal to make the learning faster
-    #follow by Downsampling
     #change to 32 x32 with 3 channels(RGB)
     Input(shape=(32,32,3)),
-    #first conv block
-    layers.Conv2D(32,(3,3),activation ='relu'), #features to look for using 32 filter(basic) 
-    layers.MaxPooling2D((2,2)),
-    #second conv block
-    layers.Conv2D(64,(3,3),activation ='relu'), #features to look for using 64 filter(complex) 
-    layers.MaxPooling2D((2,2)),
 
-    # third conv block( adding for more complex color features)
-    layers.Conv2D(64,(3,3),activation ='relu'),
+    #Apply data augmentation
+    data_augmentation,
 
+    #Block 1
+    #This block have 32 filters that looks for simple things like vertical/horizontal line/edges and basic colours
+    layers.Conv2D(32,(3,3),padding ='same',activation ='relu'), 
+    layers.BatchNormalization(), #data trimming so no extreme value which make the learning faster and stable
+    layers.Conv2D(32,(3,3), activation = 'relu'),
+    layers.BatchNormalization(),
+    layers.MaxPooling2D((2,2)), # make the model faster and felxible by shrinking the image size
+    layers.Dropout(0.2), #Prevent overfitting
+
+    #Block 2
+    #This block have 64 filters which will combine block 1 to start seeing shapes and textures if any
+    layers.Conv2D(64,(3,3),padding ='same',activation ='relu'), 
+    layers.BatchNormalization(), #data trimming so no extreme value which make the learning faster and stable
+    layers.Conv2D(64,(3,3), activation = 'relu'),
+    layers.BatchNormalization(),
+    layers.MaxPooling2D((2,2)), # make the model faster and felxible by shrinking the image size
+    layers.Dropout(0.3), #Prevent overfitting
+
+    #Block 3
+    #This block have 128 filters which will combine block 1 and 2 to start seeing complex strutures like wings, wheel or beaks
+    layers.Conv2D(128,(3,3),padding ='same',activation ='relu'), 
+    layers.BatchNormalization(), #data trimming so no extreme value which make the learning faster and stable
+    layers.Conv2D(128,(3,3), activation = 'relu'),
+    layers.BatchNormalization(),
+    layers.MaxPooling2D((2,2)), # make the model faster and felxible by shrinking the image size
+    layers.Dropout(0.4), #Prevent overfitting
+    
+    #Final Classification layers
     # 1. Flatten to ocnverts the 2D features into a list of numbers
-    #2. Dense: A standard nnl where every neuron connects to every others 
-    # Convolutions is used to try reasoning the features of 64 neurons
     layers.Flatten(),
-    layers.Dense(64,activation ='relu'),
-    #Final Dense layer: 10 neuron correspond to dgit 0 through 9.
-    # Using softmax to convert outputs into probabilties
-    layers.Dense(10,activation = 'softmax')  
+    #Thinking layers
+    layers.Dense(128,activation ='relu'),
+    #data trimming
+    layers.BatchNormalization(),
+    layers.Dropout(0.5),
+    layers.Dense(10,activation = 'softmax'),
     
     
 ])
@@ -66,12 +97,11 @@ model.summary()
 #epochs = 10: The model looks at the entire dataset 1otimes as color images are more complex than digits
 # 
 print("\n Startng training(make take longer than MNIST....")
-history = model.fit(train_images, train_labels, epochs = 20,validation_data = (test_images,test_labels)) #try doubling the epoch to see if the improve the accuracy
-#training doesn't work need to change  the way the camera see things must go back to the model architecture to add somthing better.
+history = model.fit(train_images, train_labels, epochs = 30,validation_data = (test_images,test_labels),batch_size = 64)
 
 #Integration part where the model is saved
 #saved file later moved to Webots controller folder
-model.save('cifar10_model.keras')
+model.save('cifar10_model_v2.keras')
 print("\n Model saved as 'cifar10_model.keras'")
 
 #Evaluation
